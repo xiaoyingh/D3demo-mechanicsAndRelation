@@ -1,0 +1,48 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="UTF-8">  
+    <title>缩放操作</title>  
+</head>  
+<body>  
+
+<script src="js/d3.v3.min.js" charset="utf-8"></script>  
+<script>  
+    var width = 600,  
+        height = 600;  
+    var circles =[{cx:150,cy:200,r:30},  
+        {cx:250,cy:200,r:30}]  
+    var svg = d3.select("body").append("svg")  
+            .attr("width",width)  
+            .attr("height",height)  
+  
+  
+    //定义缩放函数  
+    var zoom = d3.behavior.zoom()  
+            .scaleExtent([1,10])//用于设置最小和最大的缩放比例  
+            .on("zoom",zoomed)  
+  
+    //绘制  
+    var g = svg.append("g")  
+            .call(zoom)
+            		
+    g.selectAll("circle")  
+            .data(circles)  
+            .enter()  
+            .append("circle")  
+            .attr("cx", function (d) {  
+                return d.cx  
+            })  
+            .attr("cy", function (d) {  
+                return d.cy  
+            })  
+            .attr("r", function (d) {  
+                return d.r  
+            })  
+            .attr("fill","black")  
+    function zoomed(){  
+        g.attr("transform","translate("+d3.event.translate+")scale("+d3.event.scale+")")  
+    } //d3.event.translate 是平移的坐标值，d3.event.scale 是缩放的值。  
+</script>  
+</body>  
+</html>  

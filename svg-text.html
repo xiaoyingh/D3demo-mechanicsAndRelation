@@ -1,0 +1,27 @@
+<!DOCTYPE html>  
+<html>  
+<body>  
+<svg width="50%" height="50%" version="1.1"  
+     xmlns="http://www.w3.org/2000/svg"  
+     xmlns:xlink="http://www.w3.org/1999/xlink">  
+  
+    <defs>  
+          <path id="circlePath"  
+            d="M10,50  
+               C10,50 50,0 100,50  
+               C100,50 150,100 190,50  
+               M10,150  
+               C10,150 50,100 100,150  
+               C100,150 150,200 190,150" />    
+    </defs>  
+    <g fill="dodgerblue" font-size="15" font-family="楷体">  
+        <text x="20" y="40">  
+            <textPath xlink:href="#circlePath">  
+                SVG与文本：使用textPath进行字符串的显示  
+            </textPath>  
+        </text>  
+    </g>  
+    <--<use xlink:href="#circlePath" fill="none" stroke="blue" />  -->
+</svg>  
+</body>  
+</html>  

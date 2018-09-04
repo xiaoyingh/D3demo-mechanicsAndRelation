@@ -1,0 +1,1138 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>人物关系图</title>
+  <link rel="stylesheet" href="css/index.css" type="text/css" />
+   <link rel="stylesheet" href="css/ionicons.min.css" type="text/css" />
+</head>
+<body>
+  <div id="relational_graph" class="mapwrap"></div>
+  <!-- <script src="http://d3js.org/d3.v3.min.js"></script> -->
+  <script src="js/d3.v3.min.js" charset="utf-8"></script>
+  <script src="js/relation.js" charset="utf-8"></script>
+  <script src="js/jquery-1.9.1.min.js" charset="utf-8"></script>
+  <script src="js/clickOtherHide.js" charset="utf-8"></script>
+
+  <script>
+d3_svg(IData);
+function d3_svg(data) {
+    //chart_page(data);//加载echarts图数据
+    $("#relational_graph").html("");
+    var w =  $("body")[0].clientWidth-20;
+    var h =  $("body")[0].clientHeight-20;
+    var width = w;
+    var height = h;
+    var img_w = 93;
+    var img_h = 93;
+    var r = 16;
+    var text_dx = -30;
+    var text_dy = 10;
+    var tipOnOff = false;
+    var imgOnOff = false;
+    //tooltip开关
+    var key = false;
+    // 用于标记是否按下了Ctrl键
+    var add_relation = false;
+    // 拖动建关系开关
+    // mouse event vars
+    var svg = null;
+    var force = null;
+
+    var nodes_circle = null
+    var nodes_img = null
+    , node = null
+    , edges_line = null;
+    var edges_text = null;
+    var nodes_text = null;
+
+    var selected_node = null
+      , selected_link = null
+      , mousedown_link = null
+      , mousedown_node = null
+      , mouseup_node = null ;
+    // 添加关系时的链接线
+    var drag_line = null ;
+    var root = data ;
+    // 添加键盘事件，用于建立关系，
+    d3.select(window).on("keydown", keydown);
+	var trc = ['<div class="btn_list">',
+	             '<div class="ion-plus-round" data-target="add_node" title="添加节点" ></div>',
+	             '<div class="full ion-arrow-expand" title="全屏"></div>',// 全屏
+	             '<div class="nofull ion-arrow-shrink" title="退出全屏" data-target="" data-method="nofull" style="display:none;"></div>',// 取消全屏
+	             '<div class="ion-camera" title="保存图片" id="save"></div>',// 保存图片
+	             '<div class="ion-ionic" title="去掉独立节点" id="independent_node"></div>',// 去掉独立节点
+	            /* '<div class="ion-help-circled" title="提示框" id="save"></div>',// 显示提示框*/
+	             '<div class="ion-settings seting" title="设置"></div>',
+	          '</div>',
+	          //添加节点
+	           '<div class="box add_node add_node_con" id="add-crop-avatar">',
+	           	 '<p class="add_node_box_title">添加实体节点</p>',
+	             '<p class="add_node_name">' ,
+		             /*'<label>名称：</label>' ,*/
+		             '<span><input type="text" id="node_name" placeholder="输入实体名称..." /><i class="ion-search"></i></span>' ,
+	             '</p>',
+	             '<p class="add-error-info"></p>',
+	             '<div class="add_node_img" id="add-avatar-view" style="display:none;">',
+		            /* '<label>上传头像：</label>' ,*/
+		             '<div class="add_img_box avatar-preview"><img src="" /></div>' ,
+	             '</div>',
+	             '<p class="add-entity-btn"></p>',
+	             '<p class="entity-has"></p>',
+               '<p class="add_btns"><a class="entity_info" href="javascript:;">详细信息&nbsp;<i class="ion-share"></i></a><a class="close_btn" href="javascript:;">取消</a><a class="add_btn" href="javascript:;">确定</a></p>',
+             '</div>',
+             //设置
+	           '<div class="box seting_box" id="add-crop-avatar">',
+	             '<div class="tip_switch">' ,
+		             '<div class="name">提示框：</div>' ,
+		             '<label class="tip ion-android-radio-button-off" data-value="1">显示</label>',
+		             '<label class="tip ion-android-radio-button-on" data-value="0">不显示</label>' ,
+	             '</div>',
+	             '<div class="img_switch">' ,
+	             '<div class="name">头像：</div>' ,
+	             '<label class="img ion-android-radio-button-off" data-value="1">显示</label>' ,
+	             '<label class="img ion-android-radio-button-on" data-value="0">不显示</label>',
+	             '</div>',
+	             '<div class="add_relation">' ,
+		             '<div class="name">添加关系：</div>' ,
+		             '<label class="ion-android-checkbox-outline-blank" data-value="1">点击节点并拖动</label>' ,
+	             '</div>',
+	             '<div class="slt_entity_type">' ,
+	             	'<div class="name">显示实体：</div>' ,
+	             	'<div style="display:inline-block; width:150px;">',
+	             		'<div class="multisetting">',
+	             			'<label class="tip" for="check_show_person">人物</label>',
+		             		'<div class="onoffswitch tip">',
+		             			'<input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="check_show_person" checked>',
+		             			'<label class="onoffswitch-label" for="check_show_person"></label>',
+		             		'</div>',
+	             		'</div>',
+	             		'<div class="multisetting">',
+	             			'<label class="tip" for="check_show_person">组织</label>',
+		             		'<div class="onoffswitch tip">',
+		             			'<input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="check_show_org" checked>',
+		             			'<label class="onoffswitch-label" for="check_show_org"></label>',
+		             		'</div>',
+	             		'</div>',
+	             		'<div class="multisetting">',
+	             			'<label class="tip" for="check_show_person">事件</label>',
+		             		'<div class="onoffswitch tip">',
+		             			'<input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="check_show_event" checked>',
+		             			'<label class="onoffswitch-label" for="check_show_event"></label>',
+		             		'</div>',
+	             		'</div>',
+	             	'</div>',
+	             '</div>',
+	             '<div class="set_broaden_degree">' ,
+	             	'<div class="name">扩线层级：</div>' ,
+	             	'<div style="display:inline-block;">',
+	             		'<div style="margin-left:10px; display:inline-block; width:100px" id="slider-broaden-degree"></div>',
+	             		'<label id="amount" style="margin-left:16px; border:0; color:#f6931f; font-weight:bold;"></label>',
+	             		'<label> 层</label>',
+	             	'</div>',
+	             '</div>',
+	             '<div class="set_max_entity" style="border-bottom: 0px;">' ,
+	             	'<div class="name">实体数量：</div>' ,
+	             	'<div style="display:inline-block;">',
+	             		'<label style="display:inline-block;">最多显示 </label>',
+	             		'<input id="maxentity" type="text" style="display:inline-block; width: 64px; margin:0px 5px; border:1px solid #ccc; color:#f6931f; font-weight:bold;" value="0"></input>',
+	             		'<label style="display:inline-block;"> 个</label>',
+	             	'</div>',
+	             '</div>',
+	             /*'<div class="go" style="border-bottom: 0px;">' ,
+	             	'<div class="name"></div>' ,
+	             	'<div style="float:right;">',
+	             		'<a href="javascript:apply_setup();" class="btn">',
+	             			'<i class="fa fa-refresh" style="color:#ffffff"></i>应用',
+	             		'</a>',
+	             	'</div>',
+	             '</div>',*/
+             ].join('');
+
+    // 右上角【工具箱】
+    var toolbox = d3.select("#relational_graph").append('div').attr("class", "toolbox").html(trc);
+    // 工具按钮的点击事件
+    $(".btn_list .ion-plus-round").on("click", function() {
+        $('.add-error-info').html('');
+        $(".toolbox .box:visible").hide();
+        $(".toolbox .add_node").clickOtherHide();
+        $(".toolbox .add_node").show();
+        return false;
+    });
+    $("#check_show_person").change(function(){
+    	toggle_nodes(1, $(this)[0].checked);
+    });
+    $("#check_show_org").change(function(){
+    	toggle_nodes(2, $(this)[0].checked);
+    });
+    $("#check_show_event").change(function(){
+    	toggle_nodes(6, $(this)[0].checked);
+    });
+
+    // 【添加节点】的相关事件-----------开始-------------》》》》》》》》
+    //搜索实体
+
+    //添加图片
+/*    $(".add_node .add_img_box").on("click", "img", function() {
+        $('.add-error-info').html('');
+        $("#anode-avatar-modal").show();
+        $("#anode-avatar-modal button.close").on("click", function() {
+            $(this).parents("#anode-avatar-modal").hide();
+        });
+        $("#anode-avatar-modal button.avatar-save").on("click", function() {
+            $(this).parents("#anode-avatar-modal").hide();
+        });
+    });*/
+    //添加实体
+
+    // 确定按钮
+    $(".add_btn").off("click").on("click", function() {
+        var name = $("#node_name").val();
+        var idd = $("#node_name").attr("data-entityid");
+        var type = $("#node_name").attr("data-type");
+        var src = $(".add_img_box>img").attr("src");
+        if (name && name.trim() != "") {
+            if (src) {
+                var new_node = {
+                	"id": idd,
+                    "name": name,
+                    "image": src,
+                    "type":type
+                };
+                $(".add_node").removeClass("add_show").addClass("add_hide");
+                root.nodes.push(new_node);
+                redraw();
+                $(".close_btn").click();
+                // 关闭
+                $("#inputImage").val("");
+            } else {
+                $('.add-error-info').html('请上传头像');
+            }
+            $("#node_name").val("");
+            $(".add-entity-btn").attr("data-name","").hide();
+			$(".entity-has").hide().html("");
+			$("#node_name").attr("data-entityid","");
+			$("#add-avatar-view").css("display","none");
+			$(".add_img_box>img").attr("src","");
+			$(".add_btns .entity_info").hide().attr("href","javascript:;");
+			$(".add_btns .add_btn").hide();
+        } else {
+            $('.add-error-info').html('实体名称不能为空');
+            $("#node_name").focus();
+        }
+        return false;
+    });
+    // 取消按钮
+    $(".close_btn").off("click").on("click", function() {
+        $("#node_name").val("");
+        $("#node_name").css("border", "1px solid #ccc");
+        $(".add_img_box").attr("src", "");
+        $(".toolbox .add_node").hide();
+        return false;
+    });
+    // 【添加节点】的相关事件-----------结束-------------《《《《《《《
+    // 【全屏事件】-----------------开始---------------》》》》》》
+    $(".full").off("click").on("click", function() {
+        // d3.select(".js_doc").style({"position":"fixed","top":"70px","z-index":2});
+        full();
+        $(window).off("resize").on("resize", function() {
+            // 当浏览器大小变化时
+            full();
+        });
+    });
+    function full() {
+        $(".full").css("display", "none");
+        $(".nofull").css("display", "block");
+        height = $(window).height()-60;
+        width = $(window).width();
+        svg.attr("width", width).attr("height", height).style({
+            "width": width,
+            "height": height
+        }).classed("svgfull", true);
+        force.size([width, height]).linkDistance(300);
+        toolbox.classed("svgfull-toolbox", true);
+        redraw();
+    }
+    // 【全屏事件】-----------------结束---------------《《《《《《《《
+    // 【取消全屏】-----------------开始----------------》》》》》》》》
+    $(".nofull").off("click").on("click", function() {
+        $(window).off("resize");
+        width = w;
+        height = h;
+        // d3.select(".js_doc").style({"position":"absolute","top":"0px","z-index":2});
+        $(this).css("display", "none");
+        $(".full").css("display", "block");
+        svg.attr("width", width).attr("height", height).style({
+            "width": width,
+            "height": height
+        }).classed("svgfull", false);
+        force.size([width, height]).linkDistance(200);
+        toolbox.classed("svgfull-toolbox", false);
+        redraw();
+    });
+    // 【取消全屏】-----------------结束----------------《《《《《《《《《
+    // 【导出图片】-----------------开始---------------》》》》》》》》》》
+    d3.select("#save").on("click", function() {
+    	var svg = $("svg")[0];
+    	var saveOptions = {
+    		    selectorRemap: function(s) {return s.replace('#relational_graph ', '')}
+    	  }
+    	 saveSvgAsPng(svg, 'capture-' + (new Date().getTime()) + '.png', saveOptions);
+        //var html = d3.select("svg").attr("version", 1.1).attr("xmlns", "http://www.w3.org/2000/svg").node().parentNode.innerHTML;
+        /*
+		 * console.log(html); console.log(btoa(encodeURIComponent(html))) var
+		 * imgsrc = 'data:image/svg+xml;base64,'+
+		 * btoa(encodeURIComponent(html)); var img = '<img src="'+imgsrc+'">';
+		 * d3.select("#svgdataurl").html(img);
+		 */
+       // submit_download_form("svg");
+    });
+    // 【导出图片】-----------------结束---------------《《《《《《《《《《
+    // 【去掉独立节点】-----------------开始------------》》》》》》》》》》
+    var isFilter = false;
+    $("#independent_node").on("click",function(){
+
+    	if(!isFilter){
+    	var new_nodes = [];
+    	root.edges.forEach(function(d,i){
+    		var s = new_nodes.indexOf(d.source);
+    		if(s<0){
+    			new_nodes.push(d.source);
+    		}
+    		var t = new_nodes.indexOf(d.target);
+    		if(t<0){
+    			new_nodes.push(d.target);
+    		}
+    	});
+    	var entitys = [];
+    	new_nodes.forEach(function(d,i){
+    		var enty = {};
+    		enty.id=d.id;
+    		enty.type=d.type;
+    		entitys.push(enty);
+    	});
+    	var docs__ = $.cookie(dockey);
+    	if(entitys && entitys.length>0){
+	    	$.post("/analytic/statisticGraph",{docs:docs__,entities:JSON.stringify(entitys)},function(data){
+				if (data.hasOwnProperty("center")) {
+					entity_info_base_info(data.center.id, data.center.type);
+					entity_info(data.center.id, data.center.type);
+					relate_doc(data.center.id, data.center.type);
+				}
+				isFilter = true;
+		    	root.nodes = new_nodes;
+		    	redraw();//更新关系图
+		    	$("#independent_node").off("click").css({"color":"#a5a5a5","cursor":"not-allowed"});
+				filter_docs(data.docs,data.docs_core);// 文档筛选
+				$('#echarts_div').load("page/analytic/index_echarts_div.html",function(d){
+					chart_page(data);
+				});
+	    	});
+    	}else{
+            $.Notification.autoHideNotify(
+                    'error',
+                    'top center',
+                    '去掉独立节点',
+                    '没有关联关系，无法去掉独立节点...'
+                    );
+    	}
+
+      }else{
+    	  location.reload();//刷新页面
+      }
+    });
+    // 【去掉独立节点】-----------------结束------------《《《《《《《《《
+    // 【设置】--------------------开始---------------》》》》》》》》》》
+    $(".toolbox .seting").on("click", function() {
+        $(".toolbox .box:visible").hide();
+        $(".toolbox .seting_box").clickOtherHide();
+        //提示框开关
+        $(".toolbox .seting_box .tip_switch label.tip").off("click").on("click", function() {
+            $(this).parent().find(".tip").removeClass('ion-android-radio-button-on').addClass('ion-android-radio-button-off');
+            $(this).removeClass('ion-android-radio-button-off').addClass('ion-android-radio-button-on');
+            var val = $(this).parent().find(".ion-android-radio-button-on").attr("data-value");
+            if (val && val == 1) {
+                tipOnOff = true;
+            } else {
+                tipOnOff = false;
+            }
+            //$(".toolbox .seting").click();
+        });
+        //图片显示开关
+        $(".toolbox .seting_box .img_switch label.img").off("click").on("click", function() {
+        	$(this).parent().find(".img").removeClass('ion-android-radio-button-on').addClass('ion-android-radio-button-off');
+        	$(this).removeClass('ion-android-radio-button-off').addClass('ion-android-radio-button-on');
+        	var val = $(this).parent().find(".ion-android-radio-button-on").attr("data-value");
+        	if (val && val == 1) {
+        		imgOnOff = true;
+        	} else {
+        		imgOnOff = false;
+        	}
+        	 redraw();
+        	//$(".toolbox .seting").click();
+        });
+        //添加关系开关
+        var t = 0;
+        $(".toolbox .seting_box .add_relation label").off("click").on("click", function() {
+            if (t % 2 == 0) {
+                $(this).removeClass('ion-android-checkbox-outline-blank').addClass("ion-android-checkbox-outline");
+                add_relation = true;
+            } else {
+                $(this).addClass('ion-android-checkbox-outline-blank').removeClass("ion-android-checkbox-outline");
+                add_relation = false;
+            }
+            t++;
+            //$(".toolbox .seting").click();
+        });
+        $(".toolbox .seting_box").toggle();
+        return false;
+    });
+    // 【设置】--------------------结束---------------《《《《《《《《《《
+    // 添加一个提示框
+    var tooltip = d3.select("#relational_graph").append("div").attr("class", "tooltip");
+    // add link
+    /*
+	 * var link1 = { source : 0, target : 0, id:"drag_line", x1:0, y1:0, x2:0,
+	 * y2:0 }; root.edges.push(link1);
+	 */
+    var node_drag = d3.behavior.drag().on("dragstart", dragstart).on("drag", dragmove).on("dragend", dragend);
+    svg = d3.select("#relational_graph").append("svg").style("background", "#5189c5").attr("width", width).attr("height", height).on("mousemove", mousemove).on("mouseup", mouseup);
+    svg.on("click", function() {
+    });
+    force = d3.layout.force().nodes(root.nodes).links(root.edges).size([width, height]).linkDistance(200).charge(-800).start();
+    redraw();
+    // ====================《 重新布局 》======================
+    function redraw() {
+        nodes_circle = svg.selectAll("circle").remove();
+        node = svg.selectAll("circle").remove();
+        edges_line = svg.selectAll("line").remove();
+        edges_text = svg.selectAll(".linetext").remove();
+        nodes_text = svg.selectAll(".nodetext").remove();
+        nodes_img = svg.selectAll("defs").remove();
+        edges_line = svg.selectAll("line");
+        edges_text = svg.selectAll(".linetext");
+        nodes_text = svg.selectAll(".nodetext");
+        // ------------1连线---------------
+        edges_line = edges_line.data(root.edges);
+        edges_line.enter().insert("line", "text").classed("line", true).attr("sourceId", function(d) {
+            return d.source.id;
+        }).attr("targetId", function(d) {
+            return d.target.id;
+        }).on("mouseover", mouseover_lineOrtext).on("mouseleave", mouseout_hidden_tooltip).on("click", relationClick);
+        svg.select("#drag_line").remove();
+        // line displayed when dragging new nodes
+        drag_line = svg.insert("line", "text").attr("id", "drag_line").attr("class", "drag_line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 0);
+        // ----------2连线的文字-----------
+        edges_text = edges_text.data(root.edges);
+        if(imgOnOff){
+        	edges_text.enter().insert("text", "circle");
+        }else{
+        	edges_text.enter().insert("text", "circle");
+        }
+        edges_text.attr("class", "linetext").attr("sourceId", function(d) {
+            return d.source.id;
+        }).attr("targetId", function(d) {
+            return d.target.id;
+        }).attr("rids", function(d) {
+            var rids = d.rids;
+            if (rids) {
+                var str = "";
+                for (var i = 0; i < rids.length; i++) {
+                    str += d.rids[i] + ",";
+                }
+                return str.substring(0, str.length - 1);
+            }
+        }).on("click", relationClick).text(function(d) {
+            return d.relation;
+        }).on("mouseover", mouseover_lineOrtext).on("mouseleave", mouseout_hidden_tooltip);
+        // ----------3图片节点------------
+        if(imgOnOff){// 有头像
+            nodes_img = svg.selectAll("defs");
+            nodes_circle = svg.selectAll("circle");
+        	getImageNodeData();
+        	force.on("tick", tickImg);
+        }else{// 无头像
+            node = svg.selectAll("circle");
+        	getNodeData();
+        	force.on("tick", tickNode);
+        }
+        // ------------4图片文字------------
+        nodes_text = nodes_text.data(root.nodes);
+        nodes_text.enter().insert("text", "circle").attr("class", "nodetext").attr("dx", text_dx).attr("dy", text_dy).attr("sourceId", function(d) {
+            return d.id;
+        }).text(function(d) {
+            return d.name;
+        });
+
+/*
+ * nodes_circle.exit().remove(); circle.exit().remove();
+ */
+        if (d3.event) {
+            d3.event.preventDefault();
+            // prevent browser's default behavior
+        }
+        // change_node_text_class(svg.selectAll(".nodetext"), name);
+        force.start();
+    }
+    //封装图片节点的数据
+    function getImageNodeData() {
+        nodes_img = nodes_img.data(root.nodes);
+        var defs = nodes_img.enter().insert("defs");
+        var pattern = defs.insert("pattern").attr("width", "100%").attr("height", "100%").attr("id",function(d){
+        	 return d.id;
+        });
+
+        pattern.insert("image").attr("width", img_w).attr("height", img_h).attr("xlink:href", function(d) {
+            return d.image;
+        });
+        fill="url(#raduisImage)"
+        nodes_circle = nodes_circle.data(root.nodes);
+        nodes_circle.enter().insert("circle")
+        .attr("width", img_w).attr("height", img_h).attr("class", "circle")// .attr("lowsrc","/images/avator_58.png")
+        .attr("xlink:href", function(d) {
+            return d.image;
+        }).attr("entityID", function(d) {
+            return d.id;
+        }).attr("name", function(d) {
+            return d.name;
+        }).attr("type", function(d) {
+            return d.type;
+        }).attr("r",img_w / 2).attr("fill",function(d){
+        	return "url(#"+ d.id +")"
+        }).classed("confirm",function(d){
+        	if(d.confirm){
+        		return true;
+        	}else{
+        		return false;
+        	}
+        })
+        //.style("border-radius", "50%")
+        /*
+		 * .on("mouseover",function(d,i){ //显示连接线上的文字
+		 * edges_text.style("fill-opacity",function(edge){ if( edge.source === d ||
+		 * edge.target === d ){ return 1.0; } }); })
+		 * .on("mouseout",function(d,i){ //隐去连接线上的文字
+		 * edges_text.style("fill-opacity",function(edge){ if( edge.source === d ||
+		 * edge.target === d ){ return 0.0; } }); })
+		 */
+        .on("dblclick", function(d, i) {
+            // 双击事件
+            window.open("/analytic?type=" + d.type + "&entityid=" + d.id);
+        }).on("click", function(d, i) {
+            var entity_type = d.type;
+            var entity_id = d.id;
+            var name = d.name;
+            $("#rel_all_info").attr("style", "display:none;");
+            // 隐藏关系相关试图
+            // 改变字体颜色
+            var lsid = d.id;
+            change_style(data.center.name, lsid);
+            // 改变节点文字的样式
+            // 仅获取实体基本信息
+            window.parent.entity_info_base_info(entity_id, entity_type, name);
+            // 获取主页面右侧的实体信息
+            window.parent.entity_info(entity_id, entity_type);
+            // 获取实体的关联文档
+            window.parent.relate_doc(entity_id, entity_type);
+        }).on("mousedown", mousedown_nodes_img).on("mouseover", mouseover_nodes_img).on("mouseup", mouseup_nodes_img).on("mouseleave", mouseout_hidden_tooltip).call(node_drag);
+    }
+    //封装无图片节点的数据
+    function getNodeData() {
+        node = node.data(root.nodes);
+        node.enter().insert("circle").attr("entityID", function(d) {
+            return d.id;
+        }).attr("name", function(d) {
+            return d.name;
+        }).attr("xlink:href", function(d) {
+            return d.image;
+        }).attr("type", function(d) {
+            return d.type;
+        })
+        .classed("node", true)
+        .attr("r", r)
+        .classed("confirm",function(d){
+        	if(d.confirm){
+        		return true;
+        	}else{
+        		return false;
+        	}
+        })
+        .on("dblclick", function(d, i) {
+            // 双击事件
+            window.open("/analytic?type=" + d.type + "&entityid=" + d.id);
+        }).on("click", function(d, i) {
+            var entity_type = d.type;
+            var entity_id = d.id;
+            var name = d.name;
+            $("#rel_all_info").attr("style", "display:none;");
+            // 隐藏关系相关试图
+            // 改变字体颜色
+            var lsid = d.id;
+            change_style(data.center.name, lsid);
+            // 改变节点文字的样式
+            // 仅获取实体基本信息
+            window.parent.entity_info_base_info(entity_id, entity_type, name);
+            // 获取主页面右侧的实体信息
+            window.parent.entity_info(entity_id, entity_type);
+            // 获取实体的关联文档
+            window.parent.relate_doc(entity_id, entity_type);
+        }).on("mousedown", mousedown_nodes_img).on("mouseover", mouseover_nodes_img).on("mouseup", mouseup_nodes_img).on("mouseleave", mouseout_hidden_tooltip).call(node_drag);
+    }
+    //关系的连线或文字点击事件
+    function relationClick(d) {
+        var lsid = d.source.id;
+        var ltid = d.target.id;
+        change_style(data.center.name, lsid, ltid);
+        // 改变样式
+        var sourceId = d3.select(this).attr("sourceId");
+        var targetId = d3.select(this).attr("targetId");
+        var rids = d3.select(this).attr("rids");
+        // query_rel_info(sourceId, targetId);//更加from to 查询关系列表
+        query_rel_info_byrids(rids);
+        // 根据关系id查询关系列表
+    }
+    // 鼠标移动到关系连线上或者文字上
+    function mouseover_lineOrtext(d) {
+        if (mousedown_node || !tipOnOff)
+            return;
+        var $ts = $(this);
+        var lsid = d.source.id;
+        var ltid = d.target.id;
+        var relation = d.relation;
+        if (!relation) {
+            relation = "未定义";
+        }
+        var html = '<div class="iline"><em class="bottom_em"></em><div class="mes_hd mes_lhd">' + '<h2><span>【关系】 </span><a href="javascript:;" class="ion-edit"></a><input type="text" class="i_linetext" value="' + relation + '"/></h2>' + '<div class="mes_lbtns"><a class="mes_del btn_s ion-trash-a" href="javascript:;"></a>' + '<div  style="clear:both;"></div></div></div><div class="mes_bd"></div></div>';
+        tooltip.classed({
+            "tooltip_img": false,
+            "tooltip_line": true
+        }).style("left", (parseInt($("svg").offset().left - $("#relational_graph").offset().left) + d3.mouse(this)[0] - 128) + "px").style("top", (d3.mouse(this)[1] - 90) + "px").style("display", "block").html(html);
+        // this.style.cursor = 'pointer';// 给鼠标换成小手
+        $(".mes_del").off("click").on("click", function() {
+        	root.edges.splice(root.edges.indexOf(d), 1);//删除线条
+        	redraw();
+
+/*            root.edges.forEach(function(d,i){
+            	if(d.source.id == lsid && d.target.id == ltid){
+            		root.edges.splice(i,1);
+            	}
+            	});
+            redraw();*/
+/*
+ * 		  d3.selectAll("text").each(function(d, i) {
+			  var sid = d3.select(this).attr("sourceId");
+			  var tid = d3.select(this).attr("targetId");
+		      if (sid == lsid && tid == ltid) {
+			      d3.select(this).remove();
+			      }
+		      });
+		      d3.selectAll("line").each(function(d, i) {
+			  var sid = d3.select(this).attr("sourceId");
+			  var tid = d3.select(this).attr("targetId");
+		     if (sid == lsid && tid == ltid) {
+		    	 d3.select(this).remove();
+		     }
+		   });
+		  $ts.remove();
+ */
+        });
+        // 弹出框input的事件，改变【关系】的名称
+        $(".i_linetext").off("blur").on("blur", function() {
+            d3.selectAll(".linetext").each(function(d, i) {
+                var sid = d3.select(this).attr("sourceId");
+                var tid = d3.select(this).attr("targetId");
+                if (sid == lsid && tid == ltid) {
+                    d.relation = $(".i_linetext").val();
+                    // 替换原始数据
+                    d3.select(this).text($(".i_linetext").val());
+                }
+            });
+        });
+    }
+    // 鼠标离开节点或连线
+    function mouseout_hidden_tooltip(d) {
+        if (mousedown_node)
+            return;
+        tooltip.on("mouseover", function() {
+            tooltip.style("display", "block");
+        }).on("mouseout", function() {
+            tooltip.style("display", "none");
+        });
+        tooltip.style("display", "none");
+    }
+    // 鼠标移动到节点上
+    function mouseover_nodes_img(d) {
+        if (mousedown_node || !tipOnOff)
+            return;
+        this.style.cursor = 'hand';
+        // 把鼠标变成小手
+        var t = this;
+        var $this = $(this);
+        var entityID = d.id;
+        /*
+		 * 鼠标移入时， （1）通过 selection.html() 来更改提示框的文字 （2）通过更改样式 left 和 top
+		 * 来设定提示框的位置 （3）设定提示框的透明度为1.0（完全不透明）
+		 */
+        /*<a class="mes_chs btn_s" href="javascript:;">选中</a>*/
+        var html = '<div class="iimg"><em class="left_em"></em><div class="mes_hd">' + '<h2><span>【实体】 </span><input type="text" class="imgtext" value="' + d.name + '"/><a href="javascript:;" class="ion-edit"></a></h2>' + '<div class="mes_btns"><a class="mes_del btn_s ion-trash-a" href="javascript:;"></a>' + '<div style="clear:both;"></div></div></div></div>';
+        tooltip.classed({
+            "tooltip_img": true,
+            "tooltip_line": false
+        }).style("left", function(){
+        	if(imgOnOff){
+        		return (parseInt($("svg").offset().left - $("#relational_graph").offset().left) + d.x +55) + "px";
+        	}else{
+        		return (parseInt($("svg").offset().left - $("#relational_graph").offset().left) + d.x +25) + "px";
+        	}
+        }).style("top",function(){
+        	if(imgOnOff){
+        	}
+        	return (parseInt($("svg").offset().top) + d.y - 108) + "px";
+        })
+        // .style("left", (parseInt($("svg").offset().left) + this.x.animVal.value + 265) + "px")
+        // .style("top",(parseInt($("svg").offset().top) + this.y.animVal.value - 95) + "px")
+        // .style("left", (parseInt($("svg").offset().left - $("#relational_graph").offset().left) + this.x.animVal.value + 95) + "px")
+        // .style("left", (d3.mouse(this)[0] + 95) + "px").style("top",(d3.mouse(this)[1] - 96) + "px")
+        .style("display", "block").html(html);
+        $(".mes_del").off("click").on("click", function() {
+
+        	root.nodes.splice(root.nodes.indexOf(d), 1);//删除节点
+
+        	root.edges = root.edges.filter(function(l) {
+        			return (l.source !== d) && (l.target !== d); });
+        	/*root.edges = root.edges.filter(function(l) {
+    			return (l.source === d) && (l.target === d); });
+    	  console.log(toSplice);
+    	  toSplice.map(function(l) {
+    		  root.edges.splice(root.edges.indexOf(l), 1); });*/
+        	redraw();
+        //删除节点方式一
+    /*
+            root.nodes.forEach(function(d,i){
+            	if(d.id == entityID){
+            		root.nodes.splice(i,1);
+            	}
+            });
+        	//var tempEdges = root.edges.concat();
+            root.edges.forEach(function(d,i){
+            	if(d.source.id == entityID || d.target.id == entityID){
+            		root.edges.splice(root.edges.indexOf(d),1);
+            	}
+            	});
+           // root.edges = [];
+           // root.edges = tempEdges.concat();
+            redraw();*/
+
+       //删除节点方式二
+         /*
+          * $this.remove();
+            d3.selectAll("line").each(function(d, i) {
+                var sid = d3.select(this).attr("sourceId");
+                var tid = d3.select(this).attr("targetId");
+                if (sid == entityID || tid == entityID) {
+                    d3.select(this).remove();
+                }
+            });
+            d3.selectAll("text").each(function(d, i) {
+                var sid = d3.select(this).attr("sourceId");
+                var tid = d3.select(this).attr("targetId");
+                if (sid == entityID || tid == entityID) {
+                    d3.select(this).remove();
+                }
+            });*/
+        });
+        // 弹出框input的事件，改变节点的名称
+        $(".imgtext").off("blur").on("blur", function() {
+            d3.selectAll(".nodetext").each(function(d, i) {
+                var sid = d3.select(this).attr("sourceId");
+                if (sid == entityID) {
+                    d.name = $(".imgtext").val();
+                    // 替换原始数据
+                    d3.select(this).text($(".imgtext").val());
+                }
+            });
+        });
+    }
+    // 鼠标在节点上按下
+    function mousedown_nodes_img(d) {
+        if (!add_relation) {
+            return;
+        }
+        mousedown_node = d;
+        if (mousedown_node == selected_node) {
+            selected_node = null ;
+        } else {
+            selected_node = mousedown_node;
+        }
+        selected_link = null ;
+        tooltip.style("display", "none");
+        // reposition drag line
+        drag_line.attr("class", "link").attr("x1", mousedown_node.x).attr("y1", mousedown_node.y).attr("x2", mousedown_node.x).attr("y2", mousedown_node.y);
+    }
+    // 鼠标在节点上弹起
+    function mouseup_nodes_img(d) {
+        if (mousedown_node) {
+            mouseup_node = d;
+            if (mouseup_node == mousedown_node) {
+                resetMouseVars();
+                return;
+            }
+            // add link
+            var link = {
+                source: mousedown_node,
+                target: mouseup_node
+            };
+			var from={};
+			from.id=mousedown_node.id;
+			from.type=mousedown_node.type;
+			from.name=mousedown_node.name;
+
+			var to = {};
+			to.id = d.id;
+			to.type = d.type;
+			to.name = d.name;
+			$.post("/maintain/entity_relation_save_type",{from:JSON.stringify(from),to:JSON.stringify(to)},function(data){
+				$(".modalbox").html("").html(data);
+				$(".modalbox").show();
+				$(".new_relate .sure").off("click");
+				save_relation(link);
+			});
+        }
+        //key = false;
+        resetMouseVars();
+    }
+    function save_relation(link){
+        // 确定
+        $(".new_relate .sure").click(function() {
+        	var fromid=$("#zt_input").attr("data-id");
+        	var fromtype=$("#zt_input").attr("data-type");
+        	var fromname=$("#zt_input").val();
+        	var toid=$("#kt_input").attr("data-id");
+        	var totype=$("#kt_input").attr("data-type");
+    		var start=$(".startTime").val();
+        	var end=$(".endTime").val();
+        	var rid=$("#select_rel_add").find("option:selected").val();
+        	var rname = $("#select_rel_add").find("option:selected").attr("data-name");
+        	var location=$("#rel_location").find("option:selected").val();
+    		var param={};
+       		param.fromid=fromid,
+       		param.fromtype=fromtype,
+       		param.toid=toid,
+       		param.totype=totype,
+
+        	param.start=start;
+        	param.end=end;
+        	param.rid=rid;
+        	if(location!="请选择"&&location!=""){
+        		param.location=location;
+        	}
+        	if(rid==""){
+       		 $("#select_rel_add").parent().parent().css("border","1px solid #fd2727");
+               $.Notification.autoHideNotify(
+                       'black',
+                       'right middle',
+                       '完善信息',
+                       '请根据界面的提示补充必须的字段信息后再试...'
+                       );
+       		return false;
+       	}else if(toid==""){
+                $.Notification.autoHideNotify(
+                        'black',
+                        'right middle',
+                        '完善信息',
+                        '请根据界面的提示补充必须的字段信息后再试...'
+                        );
+        		/* layer.msg('请搜索要关联的客体并选择..', function(){
+        		return false;
+    			}); */
+        		return false;
+        	}else{
+        		$.post("/maintain/entity_relation_save",{param:JSON.stringify(param)},function(d){
+    				if(d.ret.status=="success"){
+    					$(".modalbox").empty().hide();
+    					link.relation = rname;
+    					var r = [];
+    					r[0] = rid;
+    					link.rids = r
+    					root.edges.push(link);
+    					drag_line.attr("class", "drag_line_hidden");
+    					redraw();
+
+    		            $.Notification.autoHideNotify(
+    		                    'success',
+    		                    'bottom right',
+    		                    '保存成功',
+    		                    'This notification will be closed in 5 seconds...'
+    		                    );
+    				}else{
+    					drag_line.attr("class", "drag_line_hidden");
+    					$.Notification.autoHideNotify(
+                                'error',
+                                'bottom right',
+                                '保存失败',
+                                '未能保存关系到系统, 请稍后再试...'
+                                );
+    				}
+    			});
+        	}
+        });
+    }
+    function mouseover() {
+        tooltip.style("display", "none");
+    }
+    /*
+ * function mousedown() { // debugger if (!mousedown_node && !mousedown_link) {
+ * return; } }
+ */
+    function mousemove() {
+        if (!mousedown_node || !add_relation) {
+            return;
+        }
+        // update drag line
+        drag_line.attr("x1", mousedown_node.x).attr("y1", mousedown_node.y).attr("x2", d3.mouse(this)[0]).attr("y2", d3.mouse(this)[1]);
+    }
+    function mouseup() {
+        if (mousedown_node || add_relation) {
+            //key = false;
+            // hide drag line
+            drag_line.attr("class", "drag_line_hidden");
+        }
+        // clear mouse event vars
+        resetMouseVars();
+    }
+    function keydown() {
+        switch (d3.event.keyCode) {
+        case 8:
+            // backspace
+        case 46:
+            {
+                // delete
+                break;
+            }
+        case 17:
+            {
+                // ctrl
+                key = true;
+            }
+        }
+    }
+    function resetMouseVars() {
+        mousedown_node = null ;
+        mouseup_node = null ;
+        // mousedown_link = null;
+    }
+    function dragstart(d, i) {
+        force.stop();
+        // stops the force auto positioning before you start
+        // dragging
+    }
+    function dragmove(d, i) {
+        if (add_relation) {
+            return;
+        }
+        d.px += d3.event.dx;
+        d.py += d3.event.dy;
+        d.x += d3.event.dx;
+        d.y += d3.event.dy;
+        if(imgOnOff){// 有头像
+        	tickImg();
+        }else{
+        	tickNode();
+        }
+        // this is the key to make it work together with updating both
+        // px,py,x,y on d !
+    }
+    function dragend(d, i) {
+        if (add_relation) {
+            return;
+        }
+        d.fixed = true; // of course set the node to fixed so the force doesn't
+        // include the node in its auto positioning stuff
+        if(imgOnOff){// 有头像
+        	tickImg();
+        }else{
+        	tickNode();
+        }
+        force.resume();
+    }
+
+    function tickNode() {
+        // 限制结点的边界
+        root.nodes.forEach(function(d, i) {
+            d.x = d.x - r < 0 ? r : d.x;
+            d.x = d.x + r > width ? width - r : d.x;
+            d.y = d.y - r < 0 ? r : d.y;
+            d.y = d.y + r + text_dy > height ? height - r - text_dy : d.y;
+        });
+        node.attr("cx", function(d) {
+            return d.x;
+        }).attr("cy", function(d) {
+            return d.y;
+        })
+        // 更新连接线上文字的位置
+        edges_text.attr("x", function(d) {
+            return (d.source.x + d.target.x) / 2;
+        });
+        edges_text.attr("y", function(d) {
+            return (d.source.y + d.target.y) / 2;
+        });
+        edges_line.attr("x1", function(d) {
+            return d.source.x;
+        }).attr("y1", function(d) {
+            return d.source.y;
+        }).attr("x2", function(d) {
+            return d.target.x;
+        }).attr("y2", function(d) {
+            return d.target.y;
+        });
+        nodes_text.attr("x", function(d) {
+            return d.x;
+        });
+        nodes_text.attr("y", function(d) {
+            return d.y + r;
+        });
+    }
+    function tickImg() {
+        // 限制结点的边界
+        root.nodes.forEach(function(d, i) {
+            d.x = d.x - img_w / 2 < 0 ? (img_w / 2)+ 5 : d.x;
+            d.x = d.x + img_w / 2 > width ? width - img_w / 2 - 5: d.x;
+            d.y = d.y - img_h / 2 < 0 ? img_h / 2 + 5: d.y;
+            d.y = d.y + img_h / 2 + text_dy > height ? height - img_h / 2 - text_dy - 5 : d.y;
+        });
+        // 更新结点图片和文字
+        nodes_circle.attr("cx", function(d) {
+            return d.x;
+        });
+        nodes_circle.attr("cy", function(d) {
+            return d.y;
+        });
+        nodes_text.attr("x", function(d) {
+            return d.x;
+        });
+        nodes_text.attr("y", function(d) {
+            return d.y + img_w / 2;
+        });
+        // 更新连接线的位置
+        edges_line.attr("x1", function(d) {
+            return d.source.x;
+        });
+        edges_line.attr("y1", function(d) {
+            return d.source.y;
+        });
+        edges_line.attr("x2", function(d) {
+            return d.target.x;
+        });
+        edges_line.attr("y2", function(d) {
+            return d.target.y;
+        });
+        // 更新连接线上文字的位置
+        edges_text.attr("x", function(d) {
+            return (d.source.x + d.target.x) / 2;
+        });
+        edges_text.attr("y", function(d) {
+            return (d.source.y + d.target.y) / 2;
+        });
+        // test(nodes_text,data.center.name);
+    }
+    ;
+}
+/**
+ * 修改d3节点文字的样式
+ *
+ * @param nodes_text
+ * @param name
+ */
+function change_node_text_class(nodes_text, name) {
+    nodes_text.forEach(function(d, i) {
+        d.forEach(function(d, i) {
+            if ($(d).html() == name) {
+                $(d).addClass("center");
+            } else {
+            }
+        });
+    });
+}
+//改变样式
+function change_style(name, lsid, ltid) {
+    // 节点的文字样式
+    d3.selectAll(".nodetext").each(function(d, i) {
+        if (name != d3.select(this).text()) {
+            d3.select(this).classed("selected", false);
+        }
+        var sid = d3.select(this).attr("sourceId");
+        if (sid == lsid && !ltid) {
+            d3.select(this).classed("selected", true);
+        }
+    });
+    // 线的文字样式
+    /*	d3.selectAll(".linetext").each(function(d, i) {
+		d3.select(this).style("fill", "#FFF");
+		var sid = d3.select(this).attr("sourceId");
+		var tid = d3.select(this).attr("targetId");
+		if (sid == lsid && tid == ltid) {
+			d3.select(this).style("fill", "rgb(255, 153, 0)");
+		}
+	});*/
+    //  线的样式
+    d3.selectAll("line").each(function(d, i) {
+        d3.select(this).classed("selected", false);
+        var sid = d3.select(this).attr("sourceId");
+        var tid = d3.select(this).attr("targetId");
+        if (sid == lsid && tid == ltid) {
+            d3.select(this).style("selected", true);
+        }
+    });
+}
+function selectElement(nodes_text, attr) {
+    nodes_text.forEach(function(d, i) {
+        d.forEach(function(d, i) {
+            if ($(d).attr("sourceId") == attr) {
+                $(d).remove();
+            }
+        });
+    });
+}
+// 提交图片数据到后台并下载图片
+function submit_download_form(output_format) {
+    // Get the d3js SVG element
+    var tmp = document.getElementById("relational_graph");
+    var svg = tmp.getElementsByTagName("svg")[0];
+    // Extract the data as SVG text string
+    var svg_xml = (new XMLSerializer).serializeToString(svg);
+    // Submit the <FORM> to the server.
+    // The result will be an attachment file to download.
+    var form = document.getElementById("svgform");
+    form['output_format'].value = output_format;
+    form['data'].value = svg_xml;
+    form.submit();
+}
+//添加节点查看节点详情
+function svg_entity_info(event_type,entity_id) {
+	$(".modalbox").load("/maintain/entity_base_info_show", {
+		event_type : event_type,
+		entity_id : entity_id
+	}, function(data) {
+		entity_save_common();
+		if (event_type == 1) {
+			select_category(event_type);
+			strategy_query(event_type);
+			// $("#peopel_category").val($("#"+category_id).find(".row_con").html());
+			entity_save_person(2, entity_id);
+		}
+		if (event_type == 2) {
+			select_category(event_type);
+			// $("#org_category").val($("#"+category_id).find(".row_con").html());
+			entity_save_org(2, entity_id);
+		}
+		if (event_type == 6) {
+			select_category(event_type);
+			// $("#event_category").val($("#"+category_id).find(".row_con").html());
+			entity_save_event(2, entity_id);
+		}
+
+	}).show();
+}
+
+  </script>
+</body>
+</html>
